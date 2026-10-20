@@ -1,4 +1,9 @@
 require("dotenv").config();
+
+// Tambahkan ini untuk mengatur DNS Node.js
+const dns = require("node:dns");
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
 const express = require("express");
 const mongoose = require("mongoose");
 
@@ -16,8 +21,6 @@ mongoose
 
 // Routing (Disesuaikan dengan nama file fisik di folder routes)
 app.use("/api/users", require("./routes/userRoutes"));
-app.use("/api/kategori-barang", require("./routes/kategoriRoutes"));
-app.use("/api/catalog", require("./routes/catalogRoutes"));
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
