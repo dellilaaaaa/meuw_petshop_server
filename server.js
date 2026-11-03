@@ -16,6 +16,7 @@ if (dns.setDefaultResultOrder) {
 
 // Load Model (jika memang dibutuhkan global sebelum populate)
 require("./models/Kategori");
+require("./models/HistoriTransaksi"); // 👈 1. TAMBAHKAN MODEL HISTORI DI SINI
 
 // Event listener untuk koneksi Mongoose
 mongoose.connection.on("error", (err) => {
@@ -34,6 +35,7 @@ app.use("/api/kategori-barang", require("./routes/kategoriRoutes"));
 app.use("/api/catalog", require("./routes/catalogRoutes"));
 app.use("/api/stores", require("./routes/storeRoutes"));
 app.use("/api/layanan", require("./routes/layananRoutes"));
+app.use("/api/histori-transaksi", require("./routes/historiRoutes")); // 👈 2. TAMBAHKAN ROUTING DI SINI
 
 // Start Server
 const PORT = process.env.PORT || 4000;
