@@ -1,6 +1,5 @@
 const HistoriTransaksi = require('../models/HistoriTransaksi.js');
 
-// 1. Ambil semua histori berdasarkan id_transaksi
 exports.getHistoriByTransaksi = async (req, res) => {
   try {
     const { id_transaksi } = req.params;
@@ -19,7 +18,6 @@ exports.getHistoriByTransaksi = async (req, res) => {
   }
 };
 
-// 2. Tambah catatan histori secara manual (jika diperlukan)
 exports.addHistori = async (req, res) => {
   try {
     const { id_histori, id_transaksi, status_sebelumnya, status_terbaru, catatan } = req.body;

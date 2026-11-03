@@ -35,7 +35,7 @@ app.use("/api/kategori-barang", require("./routes/kategoriRoutes"));
 app.use("/api/catalog", require("./routes/catalogRoutes"));
 app.use("/api/stores", require("./routes/storeRoutes"));
 app.use("/api/layanan", require("./routes/layananRoutes"));
-app.use("/api/histori-transaksi", require("./routes/historiRoutes")); // 👈 2. TAMBAHKAN ROUTING DI SINI
+app.use("/api/histori-transaksi", require("./routes/historiRoutes"));
 
 // Start Server
 const PORT = process.env.PORT || 4000;
