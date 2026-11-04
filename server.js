@@ -36,6 +36,8 @@ app.use("/api/catalog", require("./routes/catalogRoutes"));
 app.use("/api/stores", require("./routes/storeRoutes"));
 app.use("/api/layanan", require("./routes/layananRoutes"));
 app.use("/api/histori-transaksi", require("./routes/historiRoutes"));
+app.use("/api/shopping-cart", require("./routes/shoppingCartRoutes"));
+app.use("/api/item-keranjang", require("./routes/itemKeranjangRoutes"));
 
 // Start Server
 const PORT = process.env.PORT || 4000;
