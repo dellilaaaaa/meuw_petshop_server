@@ -19,6 +19,9 @@ if (dns.setDefaultResultOrder) {
 require("./models/Kategori");
 require("./models/HistoriTransaksi");
 require("./models/Transaksi");
+require("./models/Review");
+require("./models/DetailLayanan");
+require("./models/DetailTransaksi");
 
 // --- PERBAIKAN KONEKSI MONGODB UNTUK VERCEL SERVERLESS ---
 let isConnected = false;
@@ -60,6 +63,9 @@ app.use("/api/stores", require("./routes/storeRoutes"));
 app.use("/api/layanan", require("./routes/layananRoutes"));
 app.use("/api/histori-transaksi", require("./routes/historiRoutes"));
 app.use("/api/transaksi", require("./routes/transaksiRoutes"));
+app.use("/api/review", require("./routes/reviewRoutes"));
+app.use("/api/detail-layanan", require("./routes/detailLayananRoutes"));
+app.use("/api/detail-transaksi", require("./routes/detailTransaksiRoutes"));
 
 // Hanya jalankan app.listen jika tidak berjalan di lingkungan Vercel Serverless
 if (process.env.NODE_ENV !== 'production') {
