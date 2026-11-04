@@ -16,8 +16,14 @@ const catalogSchema = new mongoose.Schema(
       required: [true, "Harga barang harus diisi"],
     },
     foto: {
-      type: String,
-      default: "",
+      data: {
+        type: Buffer,
+        default: undefined
+      },
+      contentType: {
+        type: String,
+        default: ""
+      }
     },
     deskripsi: {
       type: String,
