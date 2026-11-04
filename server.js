@@ -2,32 +2,55 @@ require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
+const cors = require('cors');
 
 const app = express();
 
+app.use(cors());
 // Middleware JSON Parser
 app.use(express.json());
 
-// Opsional: atur resolusi IP jika mengalami masalah DNS lokal pada IPv6
 const dns = require("node:dns");
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder("ipv4first");
 }
 
-// Load Model (jika memang dibutuhkan global sebelum populate)
+// Load Model
 require("./models/Kategori");
-require("./models/HistoriTransaksi"); // 👈 1. TAMBAHKAN MODEL HISTORI DI SINI
+require("./models/HistoriTransaksi");
+require("./models/Transaksi");
 
-// Event listener untuk koneksi Mongoose
-mongoose.connection.on("error", (err) => {
-  console.error("❌ Error pada koneksi MongoDB:", err);
+// --- PERBAIKAN KONEKSI MONGODB UNTUK VERCEL SERVERLESS ---
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected && mongoose.connection.readyState === 1) {
+    return;
+  }
+
+  try {
+    const db = await mongoose.connect(process.env.DB_URL);
+    isConnected = db.connections[0].readyState === 1;
+    console.log("✅ Berhasil terhubung ke MongoDB Atlas!");
+  } catch (err) {
+    console.error("❌ Gagal koneksi ke MongoDB Atlas:", err);
+    throw err;
+  }
+};
+
+// Middleware wajib: pastikan DB terhubung SEBELUM masuk ke rute API
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ 
+      success: false, 
+      message: "Gagal terhubung ke Database", 
+      error: err.message 
+    });
+  }
 });
-
-// Konek ke MongoDB Atlas
-mongoose
-  .connect(process.env.DB_URL)
-  .then(() => console.log("✅ Berhasil terhubung ke MongoDB Atlas!"))
-  .catch((err) => console.error("❌ Gagal koneksi awal ke MongoDB Atlas:", err));
 
 // Routing
 app.use("/api/users", require("./routes/userRoutes"));
@@ -36,11 +59,15 @@ app.use("/api/catalog", require("./routes/catalogRoutes"));
 app.use("/api/stores", require("./routes/storeRoutes"));
 app.use("/api/layanan", require("./routes/layananRoutes"));
 app.use("/api/histori-transaksi", require("./routes/historiRoutes"));
-app.use("/api/shopping-cart", require("./routes/shoppingCartRoutes"));
-app.use("/api/item-keranjang", require("./routes/itemKeranjangRoutes"));
+app.use("/api/transaksi", require("./routes/transaksiRoutes"));
 
-// Start Server
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running di http://localhost:${PORT}`);
-});
+// Hanya jalankan app.listen jika tidak berjalan di lingkungan Vercel Serverless
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running di http://localhost:${PORT}`);
+  });
+}
+
+// Export app agar bisa dibaca oleh Vercel Serverless Engine
+module.exports = app;

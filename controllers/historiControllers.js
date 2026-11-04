@@ -1,5 +1,22 @@
 const HistoriTransaksi = require('../models/HistoriTransaksi.js');
 
+exports.getAllHistori = async (req, res) => {
+  try {
+    const histori = await HistoriTransaksi.find().sort({ tanggal_perubahan: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: histori
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil seluruh data histori transaksi',
+      error: error.message
+    });
+  }
+};
+
 exports.getHistoriByTransaksi = async (req, res) => {
   try {
     const { id_transaksi } = req.params;
