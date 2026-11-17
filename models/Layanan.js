@@ -14,7 +14,7 @@ const layananSchema = new mongoose.Schema(
       type: String,
       required: [true, "Nama layanan harus diisi"],
       trim: true,
-      maxlength: [50, "Nama layanan maksimal 50 karakter"]
+      maxlength: 100
     },
     harga: {
       type: Number,

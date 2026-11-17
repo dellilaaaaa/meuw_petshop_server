@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
 // Tambah User Baru (Register)
@@ -35,7 +36,7 @@ exports.createUser = async (req, res) => {
       nama,
       email,
       no_telp,
-      password,
+      password: await bcrypt.hash(password, 10),
       alamat
     });
 
@@ -174,7 +175,7 @@ exports.updateUser = async (req, res) => {
     if (nama !== undefined) user.nama = nama;
     if (email !== undefined) user.email = email;
     if (no_telp !== undefined) user.no_telp = no_telp;
-    if (password !== undefined) user.password = password;
+    if (password !== undefined) user.password = await bcrypt.hash(password, 10);
     if (alamat !== undefined) user.alamat = alamat;
 
     await user.save();

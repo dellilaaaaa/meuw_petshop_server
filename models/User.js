@@ -6,8 +6,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      immutable: true
-    },
+      immutable: true,
+      maxlength: 4
+    }, 
     username: {
       type: String,
       required: true,
@@ -17,7 +18,7 @@ const userSchema = new mongoose.Schema(
     nama: {
       type: String,
       required: true,
-      maxlength: 50,
+      maxlength: 150,
       trim: true
     },
     email: {
