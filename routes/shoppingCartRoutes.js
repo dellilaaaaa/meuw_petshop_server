@@ -1,16 +1,25 @@
+
 const express = require("express");
 const router = express.Router();
 
 const shoppingCartController = require("../controllers/shoppingCartControllers");
 
-router.get("/:id_user", shoppingCartController.getCart);
+// Tambah Keranjang
+router.post("/", shoppingCartController.createCart);
 
-router.post("/:id_user", shoppingCartController.addToCart);
+// Ambil Semua Keranjang
+router.get("/", shoppingCartController.getAllCarts);
 
-router.put("/:id_user/:id_barang", shoppingCartController.updateCartItem);
+// Ambil Keranjang Berdasarkan User
+router.get("/user/:id_user", shoppingCartController.getCartByUser);
 
-router.delete("/:id_user/clear", shoppingCartController.clearCart);
+// Ambil Keranjang Berdasarkan ID
+router.get("/:id_keranjang", shoppingCartController.getCartById);
 
-router.delete("/:id_user/:id_barang", shoppingCartController.removeCartItem);
+// Edit Keranjang
+router.put("/:id_keranjang", shoppingCartController.updateCart);
+
+// Hapus Keranjang
+router.delete("/:id_keranjang", shoppingCartController.deleteCart);
 
 module.exports = router;

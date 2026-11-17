@@ -1,12 +1,33 @@
 
 const express = require("express");
 const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
+
 const router = express.Router();
 
 const catalogController = require("../controllers/catalogControllers");
 
+// Folder penyimpanan foto
+const uploadDir = path.join(__dirname, "../uploads/barang");
+
+fs.mkdirSync(uploadDir, { recursive: true });
+
+// Konfigurasi Upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const extension = path.extname(file.originalname).toLowerCase();
+    const filename = Date.now() + "-" + Math.round(Math.random() * 1E9) + extension;
+
+    cb(null, filename);
+  }
+});
+
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage,
   limits: {
     fileSize: 5 * 1024 * 1024
   },
@@ -25,22 +46,22 @@ const upload = multer({
   }
 });
 
-// Tambah katalog dengan foto
+// Tambah Barang
 router.post("/", upload.single("foto"), catalogController.createCatalog);
 
-// Ambil semua katalog
+// Ambil Semua Barang
 router.get("/", catalogController.getAllCatalog);
 
-// Ambil foto berdasarkan ID katalog
-router.get("/:id/foto", catalogController.getFotoCatalog);
+// Ambil Barang Berdasarkan ID
+router.get("/:id", catalogController.getCatalogById);
 
-// Edit katalog
+// Edit Barang
 router.put("/:id", upload.single("foto"), catalogController.updateCatalog);
 
-// Hapus katalog
+// Hapus Barang
 router.delete("/:id", catalogController.deleteCatalog);
 
-// Penanganan error upload
+// Penanganan Error Upload
 router.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     return res.status(400).json({

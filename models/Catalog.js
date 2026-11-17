@@ -1,37 +1,43 @@
+
 const mongoose = require("mongoose");
 
 const catalogSchema = new mongoose.Schema(
   {
+    id_barang: {
+      type: String,
+      required: true,
+      unique: true,
+      immutable: true,
+      maxlength: 4
+    },
+    id_kategori: {
+      type: String,
+      ref: "Kategori",
+      required: [true, "ID Kategori harus diisi"],
+      maxlength: 4
+    },
     nama_barang: {
       type: String,
       required: [true, "Nama barang harus diisi"],
-    },
-    id_kategori: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Kategori",
-      required: [true, "ID Kategori harus diisi"],
+      maxlength: 50
     },
     harga: {
       type: Number,
       required: [true, "Harga barang harus diisi"],
+      min: 0,
+      max: 9999999999.99
     },
     foto: {
-      data: {
-        type: Buffer,
-        default: undefined
-      },
-      contentType: {
-        type: String,
-        default: ""
-      }
+      type: String,
+      default: ""
     },
     deskripsi: {
       type: String,
-      default: "",
-    },
+      default: ""
+    }
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 

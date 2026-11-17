@@ -10,13 +10,23 @@ app.use(cors());
 // Middleware JSON Parser
 app.use(express.json());
 
+// const dns = require("node:dns");
+// if (dns.setDefaultResultOrder) {
+//   dns.setDefaultResultOrder("ipv4first");
+// }
+
 const dns = require("node:dns");
+
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder("ipv4first");
+    dns.setDefaultResultOrder("ipv4first");
 }
 
 // Load Model
+require("./models/User");
 require("./models/Kategori");
+require("./models/ShoppingCart");
 require("./models/HistoriTransaksi");
 require("./models/Transaksi");
 require("./models/Review");
@@ -58,6 +68,8 @@ app.use(async (req, res, next) => {
 // Routing
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/kategori-barang", require("./routes/kategoriRoutes"));
+app.use("/api/keranjang", require("./routes/shoppingCartRoutes"));
+app.use("/api/item-keranjang", require("./routes/itemKeranjangRoutes"));
 app.use("/api/catalog", require("./routes/catalogRoutes"));
 app.use("/api/stores", require("./routes/storeRoutes"));
 app.use("/api/layanan", require("./routes/layananRoutes"));
@@ -66,6 +78,8 @@ app.use("/api/transaksi", require("./routes/transaksiRoutes"));
 app.use("/api/review", require("./routes/reviewRoutes"));
 app.use("/api/detail-layanan", require("./routes/detailLayananRoutes"));
 app.use("/api/detail-transaksi", require("./routes/detailTransaksiRoutes"));
+app.use("/api/stok-cabang", require("./routes/stokCabangRoutes"));
+app.use("/api/booking-layanan", require("./routes/bookingLayananRoutes"));
 
 // Hanya jalankan app.listen jika tidak berjalan di lingkungan Vercel Serverless
 if (process.env.NODE_ENV !== 'production') {

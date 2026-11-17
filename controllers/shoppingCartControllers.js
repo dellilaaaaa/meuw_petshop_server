@@ -1,184 +1,222 @@
+
+const mongoose = require("mongoose");
 const ShoppingCart = require("../models/ShoppingCart");
-const Catalog = require("../models/Catalog");
+const User = require("../models/User");
 
-exports.getCart = async (req, res) => {
+// Tambah Keranjang Baru
+exports.createCart = async (req, res) => {
   try {
-    const { id_user } = req.params;
+    const { id_user } = req.body;
 
-    let cart = await ShoppingCart.findOne({ id_user })
-      .populate("items.id_barang");
-
-    if (!cart) {
-      cart = await ShoppingCart.create({
-        id_user,
-        items: []
-      });
-    }
-
-    res.status(200).json({
-      message: "Berhasil mengambil data keranjang",
-      data: cart
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.addToCart = async (req, res) => {
-  try {
-    const { id_user } = req.params;
-    const { id_barang, jumlah } = req.body;
-
-    if (!id_barang || !Number.isInteger(jumlah) || jumlah < 1) {
+    if (!id_user) {
       return res.status(400).json({
-        message: "ID barang dan jumlah wajib diisi dengan benar"
+        success: false,
+        message: "ID User wajib diisi"
       });
     }
 
-    const barang = await Catalog.findById(id_barang);
+    // Cek User
+    const user = await User.findOne({ id_user });
 
-    if (!barang) {
+    if (!user) {
       return res.status(404).json({
-        message: "Barang tidak ditemukan"
+        success: false,
+        message: "User tidak ditemukan"
       });
     }
 
-    let cart = await ShoppingCart.findOne({ id_user });
+    // Cek apakah User sudah memiliki keranjang
+    const existingCart = await ShoppingCart.findOne({ id_user });
 
-    if (!cart) {
-      cart = new ShoppingCart({
-        id_user,
-        items: []
+    if (existingCart) {
+      return res.status(400).json({
+        success: false,
+        message: "User sudah memiliki keranjang"
       });
     }
 
-    const existingItem = cart.items.find(
-      item => item.id_barang.toString() === id_barang
+    // Auto Increment ID Keranjang
+    const counters = mongoose.connection.collection("counters");
+
+    const counter = await counters.findOneAndUpdate(
+      { _id: "keranjang" },
+      { $inc: { seq: 1 } },
+      { upsert: true, returnDocument: "after" }
     );
 
-    if (existingItem) {
-      existingItem.jumlah += jumlah;
-    } else {
-      cart.items.push({
-        id_barang,
-        jumlah
+    if (counter.seq > 9999) {
+      return res.status(400).json({
+        success: false,
+        message: "Batas ID Keranjang telah tercapai"
       });
     }
 
-    await cart.save();
-    await cart.populate("items.id_barang");
+    const cart = await ShoppingCart.create({
+      id_keranjang: String(counter.seq),
+      id_user
+    });
 
     res.status(201).json({
-      message: "Barang berhasil ditambahkan ke keranjang",
+      success: true,
+      message: "Keranjang berhasil dibuat",
       data: cart
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-exports.updateCartItem = async (req, res) => {
+// Ambil Semua Data Keranjang
+exports.getAllCarts = async (req, res) => {
   try {
-    const { id_user, id_barang } = req.params;
-    const { jumlah } = req.body;
+    const carts = await ShoppingCart.find();
 
-    if (!Number.isInteger(jumlah) || jumlah < 1) {
-      return res.status(400).json({
-        message: "Jumlah minimal adalah 1"
-      });
-    }
+    res.status(200).json({
+      success: true,
+      total: carts.length,
+      data: carts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 
-    const cart = await ShoppingCart.findOne({ id_user });
+// Ambil Keranjang Berdasarkan ID
+exports.getCartById = async (req, res) => {
+  try {
+    const cart = await ShoppingCart.findOne({
+      id_keranjang: req.params.id_keranjang
+    });
 
     if (!cart) {
       return res.status(404).json({
+        success: false,
         message: "Keranjang tidak ditemukan"
       });
     }
 
-    const item = cart.items.find(
-      item => item.id_barang.toString() === id_barang
-    );
-
-    if (!item) {
-      return res.status(404).json({
-        message: "Barang tidak ditemukan di keranjang"
-      });
-    }
-
-    item.jumlah = jumlah;
-
-    await cart.save();
-    await cart.populate("items.id_barang");
-
     res.status(200).json({
-      message: "Jumlah barang berhasil diperbarui",
+      success: true,
       data: cart
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-exports.removeCartItem = async (req, res) => {
+// Ambil Keranjang Berdasarkan ID User
+exports.getCartByUser = async (req, res) => {
   try {
-    const { id_user, id_barang } = req.params;
-
-    const cart = await ShoppingCart.findOne({ id_user });
+    const cart = await ShoppingCart.findOne({
+      id_user: req.params.id_user
+    });
 
     if (!cart) {
       return res.status(404).json({
+        success: false,
         message: "Keranjang tidak ditemukan"
       });
     }
 
-    const itemExists = cart.items.some(
-      item => item.id_barang.toString() === id_barang
-    );
-
-    if (!itemExists) {
-      return res.status(404).json({
-        message: "Barang tidak ditemukan di keranjang"
-      });
-    }
-
-    cart.items = cart.items.filter(
-      item => item.id_barang.toString() !== id_barang
-    );
-
-    await cart.save();
-    await cart.populate("items.id_barang");
-
     res.status(200).json({
-      message: "Barang berhasil dihapus",
+      success: true,
       data: cart
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-exports.clearCart = async (req, res) => {
+// Edit Data Keranjang
+exports.updateCart = async (req, res) => {
   try {
-    const { id_user } = req.params;
-
-    const cart = await ShoppingCart.findOne({ id_user });
+    const cart = await ShoppingCart.findOne({
+      id_keranjang: req.params.id_keranjang
+    });
 
     if (!cart) {
       return res.status(404).json({
+        success: false,
         message: "Keranjang tidak ditemukan"
       });
     }
 
-    cart.items = [];
+    const { id_user } = req.body;
+
+    if (id_user !== undefined) {
+      const user = await User.findOne({ id_user });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User tidak ditemukan"
+        });
+      }
+
+      const existingCart = await ShoppingCart.findOne({
+        id_user,
+        id_keranjang: { $ne: cart.id_keranjang }
+      });
+
+      if (existingCart) {
+        return res.status(400).json({
+          success: false,
+          message: "User sudah memiliki keranjang lain"
+        });
+      }
+
+      cart.id_user = id_user;
+    }
 
     await cart.save();
 
     res.status(200).json({
-      message: "Keranjang berhasil dikosongkan",
+      success: true,
+      message: "Keranjang berhasil diperbarui",
       data: cart
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Hapus Keranjang
+exports.deleteCart = async (req, res) => {
+  try {
+    const cart = await ShoppingCart.findOneAndDelete({
+      id_keranjang: req.params.id_keranjang
+    });
+
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: "Keranjang tidak ditemukan"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Keranjang berhasil dihapus"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };

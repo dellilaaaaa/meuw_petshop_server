@@ -1,31 +1,18 @@
 const mongoose = require("mongoose");
 
-const cartItemSchema = new mongoose.Schema(
-  {
-    id_barang: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Catalog",
-      required: true
-    },
-    jumlah: {
-      type: Number,
-      required: true,
-      min: 1,
-      default: 1
-    }
-  },
-  { _id: true }
-);
-
 const shoppingCartSchema = new mongoose.Schema(
   {
+    id_keranjang: {
+      type: String,
+      required: true,
+      unique: true,
+      immutable: true
+    },
     id_user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
       unique: true
-    },
-    items: [cartItemSchema]
+    }
   },
   {
     timestamps: true
