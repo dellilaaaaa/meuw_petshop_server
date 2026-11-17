@@ -3,6 +3,31 @@ const mongoose = require("mongoose");
 const Catalog = require("../models/Catalog");
 const Kategori = require("../models/Kategori");
 
+// Mengubah lokasi foto menjadi URL yang bisa diakses frontend
+const formatCatalog = (req, barang) => {
+  const data = barang.toObject ? barang.toObject() : { ...barang };
+
+  if (data.foto) {
+    const foto = data.foto;
+
+    // Jika sudah berupa URL, tidak perlu diubah
+    if (/^https?:\/\//i.test(foto)) {
+      return data;
+    }
+
+    const normalized = foto.replace(/\\/g, "/");
+    const uploadIndex = normalized.toLowerCase().lastIndexOf("/uploads/");
+
+    const fotoUrl = uploadIndex !== -1
+      ? normalized.substring(uploadIndex)
+      : `/uploads/barang/${normalized.split("/").pop()}`;
+
+    data.foto = `${req.protocol}://${req.get("host")}${fotoUrl}`;
+  }
+
+  return data;
+};
+
 // Tambah Barang
 exports.createCatalog = async (req, res) => {
   try {
@@ -73,14 +98,14 @@ exports.createCatalog = async (req, res) => {
       id_kategori,
       nama_barang,
       harga: nilaiHarga,
-      foto: req.file.path.replace(/\\/g, "/"),
+      foto: `/uploads/barang/${req.file.filename}`,
       deskripsi: deskripsi || ""
     });
 
     res.status(201).json({
       success: true,
       message: "Barang berhasil ditambahkan",
-      data: barangBaru
+      data: formatCatalog(req, barangBaru)
     });
 
   } catch (error) {
@@ -99,7 +124,7 @@ exports.getAllCatalog = async (req, res) => {
     res.status(200).json({
       success: true,
       total: catalogList.length,
-      data: catalogList
+      data: catalogList.map(barang => formatCatalog(req, barang))
     });
 
   } catch (error) {
@@ -126,7 +151,7 @@ exports.getCatalogById = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: barang
+      data: formatCatalog(req, barang)
     });
 
   } catch (error) {
@@ -201,7 +226,7 @@ exports.updateCatalog = async (req, res) => {
 
     // Ganti foto jika ada foto baru
     if (req.file) {
-      barang.foto = req.file.path.replace(/\\/g, "/");
+      barang.foto = `/uploads/barang/${req.file.filename}`;
     }
 
     await barang.save();
@@ -209,7 +234,7 @@ exports.updateCatalog = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Barang berhasil diperbarui",
-      data: barang
+      data: formatCatalog(req, barang)
     });
 
   } catch (error) {
