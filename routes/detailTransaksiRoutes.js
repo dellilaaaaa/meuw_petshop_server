@@ -1,11 +1,21 @@
-const express = require('express');
+
+const express = require("express");
 const router = express.Router();
-const detailTransaksiController = require('../controllers/detailTransaksiControllers');
 
-router.get('/', detailTransaksiController.getAllDetailTransaksi);
+const detailTransaksiController = require("../controllers/detailTransaksiControllers");
 
-router.get('/transaksi/:id_transaksi', detailTransaksiController.getDetailByTransaksi);
+router.get("/", detailTransaksiController.getAllDetailTransaksi);
 
-router.post('/', detailTransaksiController.createDetailTransaksi);
+router.get(
+  "/transaksi/:id_transaksi",
+  detailTransaksiController.getDetailByTransaksi
+);
+
+router.get(
+  "/:id",
+  detailTransaksiController.getDetailTransaksiById
+);
+
+router.post("/", detailTransaksiController.createDetailTransaksi);
 
 module.exports = router;

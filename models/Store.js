@@ -1,25 +1,28 @@
+
 const mongoose = require("mongoose");
 
 const storeSchema = new mongoose.Schema(
   {
     id_toko: {
-      type: Number,
+      type: String,
       required: true,
       unique: true,
+      immutable: true,
+      maxlength: 4
     },
     nama_toko: {
       type: String,
-      required: true,
-      trim: true,
+      required: [true, "Nama toko harus diisi"],
+      trim: true
     },
     alamat: {
       type: String,
-      required: true,
-      trim: true,
-    },
+      required: [true, "Alamat toko harus diisi"],
+      trim: true
+    }
   },
   {
-    versionKey: false,
+    versionKey: false
   }
 );
 
