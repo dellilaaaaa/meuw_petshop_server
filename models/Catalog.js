@@ -19,7 +19,7 @@ const catalogSchema = new mongoose.Schema(
     nama_barang: {
       type: String,
       required: [true, "Nama barang harus diisi"],
-      maxlength: 50
+      maxlength: 150
     },
     harga: {
       type: Number,

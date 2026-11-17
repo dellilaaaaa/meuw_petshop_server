@@ -83,9 +83,20 @@ exports.getAllLayanan = async (req, res) => {
 // 2. Tampilkan Layanan Berdasarkan ID
 exports.getLayananById = async (req, res) => {
   try {
+    console.log("PARAMETER ID:", req.params.id);
+    console.log("COLLECTION:", Layanan.collection.name);
+
+    const dataMentah = await Layanan.collection.findOne({
+      id_layanan: req.params.id
+    });
+
+    console.log("HASIL PENCARIAN LANGSUNG:", dataMentah);
+
     const layanan = await Layanan.findOne({
       id_layanan: req.params.id
     });
+
+    console.log("HASIL PENCARIAN MONGOOSE:", layanan);
 
     if (!layanan) {
       return res.status(404).json({
