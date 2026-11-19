@@ -1,7 +1,41 @@
-
 const mongoose = require("mongoose");
 const Catalog = require("../models/Catalog");
 const Kategori = require("../models/Kategori");
+
+// Mengubah lokasi foto menjadi URL publik & melampirkan nama_kategori
+const formatCatalog = (req, barang, kategoriMap = {}) => {
+  const data = barang.toObject ? barang.toObject() : { ...barang };
+
+  // Tambahkan nama_kategori dari hasil pencocokan tabel Kategori
+  if (data.id_kategori && kategoriMap[data.id_kategori]) {
+    data.nama_kategori = kategoriMap[data.id_kategori];
+  } else if (!data.nama_kategori) {
+    data.nama_kategori = "Lainnya";
+  }
+
+  if (data.foto) {
+    const foto = data.foto;
+
+    // Jika sudah berupa URL internet, biarkan
+    if (/^https?:\/\//i.test(foto)) {
+      return data;
+    }
+
+    const normalized = foto.replace(/\\/g, "/");
+    const uploadIndex = normalized.toLowerCase().lastIndexOf("/uploads/");
+
+    const fotoUrl =
+      uploadIndex !== -1
+        ? normalized.substring(uploadIndex)
+        : `/uploads/barang/${normalized.split("/").pop()}`;
+
+    // Pastikan protokol menggunakan https saat di Vercel
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+    data.foto = `${protocol}://${req.get("host")}${fotoUrl}`;
+  }
+
+  return data;
+};
 
 // Tambah Barang
 exports.createCatalog = async (req, res) => {
@@ -11,14 +45,14 @@ exports.createCatalog = async (req, res) => {
     if (!id_kategori || !nama_barang || harga === undefined || harga === "") {
       return res.status(400).json({
         success: false,
-        message: "Kategori, nama barang, dan harga wajib diisi"
+        message: "Kategori, nama barang, dan harga wajib diisi",
       });
     }
 
-    if (nama_barang.length > 50) {
+    if (nama_barang.length > 150) {
       return res.status(400).json({
         success: false,
-        message: "Nama barang maksimal 50 karakter"
+        message: "Nama barang maksimal 150 karakter",
       });
     }
 
@@ -31,7 +65,7 @@ exports.createCatalog = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Harga tidak valid"
+        message: "Harga tidak valid",
       });
     }
 
@@ -41,14 +75,14 @@ exports.createCatalog = async (req, res) => {
     if (!kategori) {
       return res.status(404).json({
         success: false,
-        message: "Kategori tidak ditemukan"
+        message: "Kategori tidak ditemukan",
       });
     }
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "Foto barang wajib diupload"
+        message: "Foto barang wajib diupload",
       });
     }
 
@@ -64,7 +98,7 @@ exports.createCatalog = async (req, res) => {
     if (counter.seq > 9999) {
       return res.status(400).json({
         success: false,
-        message: "Batas ID Barang telah tercapai"
+        message: "Batas ID Barang telah tercapai",
       });
     }
 
@@ -73,39 +107,50 @@ exports.createCatalog = async (req, res) => {
       id_kategori,
       nama_barang,
       harga: nilaiHarga,
-      foto: req.file.path.replace(/\\/g, "/"),
-      deskripsi: deskripsi || ""
+      foto: `/uploads/barang/${req.file.filename}`,
+      deskripsi: deskripsi || "",
     });
+
+    const kategoriMap = { [kategori.id_kategori]: kategori.nama_kategori };
 
     res.status(201).json({
       success: true,
       message: "Barang berhasil ditambahkan",
-      data: barangBaru
+      data: formatCatalog(req, barangBaru, kategoriMap),
     });
-
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
 
-// Ambil Semua Barang
+// Ambil Semua Barang (Beserta Nama Kategorinya)
 exports.getAllCatalog = async (req, res) => {
   try {
-    const catalogList = await Catalog.find();
+    const [catalogList, kategoriList] = await Promise.all([
+      Catalog.find(),
+      Kategori.find(),
+    ]);
+
+    // Buat dictionary { "1": "Makanan Kucing", "2": "Pasir", ... }
+    const kategoriMap = {};
+    kategoriList.forEach((kat) => {
+      kategoriMap[kat.id_kategori] = kat.nama_kategori;
+    });
 
     res.status(200).json({
       success: true,
       total: catalogList.length,
-      data: catalogList
+      data: catalogList.map((barang) =>
+        formatCatalog(req, barang, kategoriMap)
+      ),
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -114,25 +159,31 @@ exports.getAllCatalog = async (req, res) => {
 exports.getCatalogById = async (req, res) => {
   try {
     const barang = await Catalog.findOne({
-      id_barang: req.params.id
+      id_barang: req.params.id,
     });
 
     if (!barang) {
       return res.status(404).json({
         success: false,
-        message: "Barang tidak ditemukan"
+        message: "Barang tidak ditemukan",
       });
     }
 
+    const kategori = await Kategori.findOne({
+      id_kategori: barang.id_kategori,
+    });
+    const kategoriMap = kategori
+      ? { [kategori.id_kategori]: kategori.nama_kategori }
+      : {};
+
     res.status(200).json({
       success: true,
-      data: barang
+      data: formatCatalog(req, barang, kategoriMap),
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -141,13 +192,13 @@ exports.getCatalogById = async (req, res) => {
 exports.updateCatalog = async (req, res) => {
   try {
     const barang = await Catalog.findOne({
-      id_barang: req.params.id
+      id_barang: req.params.id,
     });
 
     if (!barang) {
       return res.status(404).json({
         success: false,
-        message: "Barang tidak ditemukan"
+        message: "Barang tidak ditemukan",
       });
     }
 
@@ -159,7 +210,7 @@ exports.updateCatalog = async (req, res) => {
       if (!kategori) {
         return res.status(404).json({
           success: false,
-          message: "Kategori tidak ditemukan"
+          message: "Kategori tidak ditemukan",
         });
       }
 
@@ -167,10 +218,10 @@ exports.updateCatalog = async (req, res) => {
     }
 
     if (nama_barang !== undefined) {
-      if (!nama_barang || nama_barang.length > 50) {
+      if (!nama_barang || nama_barang.length > 150) {
         return res.status(400).json({
           success: false,
-          message: "Nama barang wajib diisi dan maksimal 50 karakter"
+          message: "Nama barang wajib diisi dan maksimal 150 karakter",
         });
       }
 
@@ -188,7 +239,7 @@ exports.updateCatalog = async (req, res) => {
       ) {
         return res.status(400).json({
           success: false,
-          message: "Harga tidak valid"
+          message: "Harga tidak valid",
         });
       }
 
@@ -199,23 +250,28 @@ exports.updateCatalog = async (req, res) => {
       barang.deskripsi = deskripsi;
     }
 
-    // Ganti foto jika ada foto baru
     if (req.file) {
-      barang.foto = req.file.path.replace(/\\/g, "/");
+      barang.foto = `/uploads/barang/${req.file.filename}`;
     }
 
     await barang.save();
 
+    const kategori = await Kategori.findOne({
+      id_kategori: barang.id_kategori,
+    });
+    const kategoriMap = kategori
+      ? { [kategori.id_kategori]: kategori.nama_kategori }
+      : {};
+
     res.status(200).json({
       success: true,
       message: "Barang berhasil diperbarui",
-      data: barang
+      data: formatCatalog(req, barang, kategoriMap),
     });
-
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -224,25 +280,24 @@ exports.updateCatalog = async (req, res) => {
 exports.deleteCatalog = async (req, res) => {
   try {
     const barang = await Catalog.findOneAndDelete({
-      id_barang: req.params.id
+      id_barang: req.params.id,
     });
 
     if (!barang) {
       return res.status(404).json({
         success: false,
-        message: "Barang tidak ditemukan"
+        message: "Barang tidak ditemukan",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: "Barang berhasil dihapus"
+      message: "Barang berhasil dihapus",
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };

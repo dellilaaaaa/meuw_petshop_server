@@ -1,7 +1,7 @@
-
 const mongoose = require("mongoose");
 const Review = require("../models/Review");
 const Transaksi = require("../models/Transaksi");
+const User = require("../models/User");
 
 // Generate ID Review Auto Increment
 const generateReviewId = async () => {
@@ -23,9 +23,7 @@ const generateReviewId = async () => {
 // 1. Tampilkan Semua Review
 exports.getAllReview = async (req, res) => {
   try {
-    const review = await Review.find().sort({
-      tanggal_review: -1
-    });
+    const review = await Review.find().sort({ tanggal_review: -1 });
 
     res.status(200).json({
       success: true,
@@ -41,17 +39,15 @@ exports.getAllReview = async (req, res) => {
   }
 };
 
-// 2. Tampilkan Review Berdasarkan Transaksi
-exports.getReviewByTransaksi = async (req, res) => {
+// 2. Tampilkan Review Milik User
+exports.getReviewByUser = async (req, res) => {
   try {
-    const review = await Review.findOne({
-      id_transaksi: req.params.id_transaksi
-    });
+    const review = await Review.findOne({ id_user: req.params.id_user });
 
     if (!review) {
       return res.status(404).json({
         success: false,
-        message: "Review untuk transaksi ini belum ada"
+        message: "User ini belum membuat review"
       });
     }
 
@@ -62,22 +58,21 @@ exports.getReviewByTransaksi = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Gagal mengambil detail review",
+      message: "Gagal mengambil review user",
       error: error.message
     });
   }
 };
 
-// 3. Tambah Review
+// 3. Tambah Review (1 user maksimal 1 review, harus sudah checkout)
 exports.createReview = async (req, res) => {
   try {
-    const { id_transaksi, rating, komentar } = req.body;
+    const { id_user, rating, komentar } = req.body;
 
-    // Validasi input
-    if (!id_transaksi || rating === undefined) {
+    if (!id_user || rating === undefined || rating === "") {
       return res.status(400).json({
         success: false,
-        message: "ID transaksi dan rating harus diisi"
+        message: "ID user dan rating harus diisi"
       });
     }
 
@@ -101,27 +96,36 @@ exports.createReview = async (req, res) => {
       });
     }
 
-    // Cek apakah transaksi ada
-    const transaksi = await Transaksi.findOne({
-      id_transaksi
-    });
+    // User harus ada
+    const user = await User.findOne({ id_user });
 
-    if (!transaksi) {
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Transaksi tidak ditemukan"
+        message: "User tidak ditemukan"
       });
     }
 
-    // Cek apakah transaksi sudah memiliki review
-    const reviewAda = await Review.findOne({
-      id_transaksi
+    // Syarat: user sudah pernah checkout (punya transaksi yang tidak dibatalkan)
+    const sudahCheckout = await Transaksi.findOne({
+      id_user,
+      status: { $ne: "Dibatalkan" }
     });
+
+    if (!sudahCheckout) {
+      return res.status(403).json({
+        success: false,
+        message: "Selesaikan transaksi terlebih dahulu sebelum membuat review"
+      });
+    }
+
+    // Syarat: 1 user maksimal 1 review
+    const reviewAda = await Review.findOne({ id_user });
 
     if (reviewAda) {
       return res.status(400).json({
         success: false,
-        message: "Transaksi ini sudah pernah diberi ulasan"
+        message: "Kamu sudah membuat review"
       });
     }
 
@@ -129,7 +133,7 @@ exports.createReview = async (req, res) => {
 
     const reviewBaru = await Review.create({
       id_review,
-      id_transaksi,
+      id_user,
       rating: nilaiRating,
       komentar: komentar || ""
     });
@@ -140,9 +144,44 @@ exports.createReview = async (req, res) => {
       data: reviewBaru
     });
   } catch (error) {
+    // Jaga-jaga kalau dua request masuk bersamaan (dicegah index unik id_user)
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Kamu sudah membuat review"
+      });
+    }
+
     res.status(400).json({
       success: false,
       message: "Gagal menambahkan review",
+      error: error.message
+    });
+  }
+};
+
+// 4. Hapus Review
+exports.deleteReview = async (req, res) => {
+  try {
+    const review = await Review.findOneAndDelete({
+      id_review: req.params.id_review
+    });
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "Review tidak ditemukan"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Review berhasil dihapus"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Gagal menghapus review",
       error: error.message
     });
   }
