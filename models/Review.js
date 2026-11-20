@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const reviewSchema = new mongoose.Schema(
@@ -10,10 +9,11 @@ const reviewSchema = new mongoose.Schema(
       immutable: true,
       maxlength: 4
     },
-    id_transaksi: {
+    id_user: {
       type: String,
       required: true,
       unique: true,
+      immutable: true,
       maxlength: 4
     },
     rating: {
