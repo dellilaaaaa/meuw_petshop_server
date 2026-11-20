@@ -82,6 +82,7 @@ app.use("/api/detail-layanan", require("./routes/detailLayananRoutes"));
 app.use("/api/detail-transaksi", require("./routes/detailTransaksiRoutes"));
 app.use("/api/stok-cabang", require("./routes/stokCabangRoutes"));
 app.use("/api/booking-layanan", require("./routes/bookingLayananRoutes"));
+app.use("/api/admin", require("./routes/adminRoutes"));
 
 // Hanya jalankan app.listen jika tidak berjalan di lingkungan Vercel Serverless
 if (process.env.NODE_ENV !== 'production') {
