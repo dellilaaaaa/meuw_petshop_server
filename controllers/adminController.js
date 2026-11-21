@@ -7,13 +7,13 @@ const HistoriTransaksi = require("../models/HistoriTransaksi");
 const Catalog = require("../models/Catalog");
 const Layanan = require("../models/Layanan");
 const User = require("../models/User");
+const Store = require("../models/Store");
 
-// 1. GET /api/admin/laporan?startDate=2026-11-01&endDate=2026-11-30&jenis=semua
+// 1. GET /api/admin/laporan
 exports.getLaporan = async (req, res) => {
   try {
-    const { startDate, endDate, jenis = "semua", status } = req.query;
+    const { startDate, endDate, jenis = "semua", status, id_toko } = req.query;
 
-    // Filter tanggal transaksi
     const filterTransaksi = {};
     if (startDate || endDate) {
       filterTransaksi.tanggal = {};
@@ -23,9 +23,11 @@ exports.getLaporan = async (req, res) => {
     if (status && status !== "semua") {
       filterTransaksi.status = status;
     }
+    if (id_toko && id_toko !== "semua") {
+      filterTransaksi.id_toko = String(id_toko);
+    }
 
-    // Ambil semua data master untuk lookup cepat berdasarkan custom ID
-    const [transaksis, detailBarangs, detailLayanans, bookings, catalogs, layanans, users] =
+    const [transaksis, detailBarangs, detailLayanans, bookings, catalogs, layanans, users, stores] =
       await Promise.all([
         Transaksi.find(filterTransaksi).sort({ tanggal: -1 }).lean(),
         DetailTransaksi.find().lean(),
@@ -33,13 +35,15 @@ exports.getLaporan = async (req, res) => {
         BookingLayanan.find().lean(),
         Catalog.find().lean(),
         Layanan.find().lean(),
-        User.find().select("-password").lean()
+        User.find().select("-password").lean(),
+        Store.find().lean()
       ]);
 
     const mapUser = Object.fromEntries(users.map((u) => [u.id_user, u]));
     const mapCatalog = Object.fromEntries(catalogs.map((c) => [c.id_barang, c]));
     const mapLayanan = Object.fromEntries(layanans.map((l) => [l.id_layanan, l]));
     const mapBooking = Object.fromEntries(bookings.map((b) => [b.id_detail_layanan, b]));
+    const mapStore = Object.fromEntries(stores.map((s) => [String(s.id_toko), s]));
 
     const records = [];
     const itemCounter = {};
@@ -48,9 +52,13 @@ exports.getLaporan = async (req, res) => {
 
     for (const trx of transaksis) {
       const pelanggan = mapUser[trx.id_user] || { nama: "Pelanggan Umum", username: "-" };
+      const toko = mapStore[String(trx.id_toko)] || {
+        id_toko: String(trx.id_toko || "1"),
+        nama_toko: "MeLuw Petshop - Jakarta Pusat"
+      };
       const isValidRevenue = trx.status === "Selesai" || trx.status === "Diproses";
 
-      // Rincian Produk di transaksi ini
+      // Rincian Produk
       if (jenis === "semua" || jenis === "produk") {
         const items = detailBarangs.filter((d) => d.id_transaksi === trx.id_transaksi);
         for (const item of items) {
@@ -67,6 +75,8 @@ exports.getLaporan = async (req, res) => {
           records.push({
             id_referensi: item.id_detail_transaksi,
             id_transaksi: trx.id_transaksi,
+            id_toko: toko.id_toko,
+            nama_toko: toko.nama_toko,
             tanggal: trx.tanggal,
             nama_pelanggan: pelanggan.nama,
             kategori_laporan: "Produk",
@@ -80,7 +90,7 @@ exports.getLaporan = async (req, res) => {
         }
       }
 
-      // Rincian Layanan di transaksi ini
+      // Rincian Layanan
       if (jenis === "semua" || jenis === "layanan") {
         const services = detailLayanans.filter((d) => d.id_transaksi === trx.id_transaksi);
         for (const srv of services) {
@@ -98,6 +108,8 @@ exports.getLaporan = async (req, res) => {
           records.push({
             id_referensi: booking ? booking.id_booking : srv.id_detail_layanan,
             id_transaksi: trx.id_transaksi,
+            id_toko: toko.id_toko,
+            nama_toko: toko.nama_toko,
             tanggal: trx.tanggal,
             nama_pelanggan: pelanggan.nama,
             kategori_laporan: "Layanan",
@@ -119,7 +131,6 @@ exports.getLaporan = async (req, res) => {
       }
     }
 
-    // Cari item terlaris
     let itemTerlaris = "-";
     let maxQty = 0;
     for (const [nama, qty] of Object.entries(itemCounter)) {
@@ -172,7 +183,6 @@ exports.updateStatusTransaksi = async (req, res) => {
     transaksi.status = status;
     await transaksi.save();
 
-    // Catat otomatis ke HistoriTransaksi
     const counters = mongoose.connection.collection("counters");
     const counter = await counters.findOneAndUpdate(
       { _id: "histori_transaksi" },
