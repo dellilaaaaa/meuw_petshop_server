@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { verifyAdmin } = require("../middleware/auth");
-const { loginUser } = require("../controllers/authControllers");
+const authController = require("../controllers/authControllers");
 const {
   getLaporan,
   updateStatusTransaksi,
@@ -14,8 +14,10 @@ const {
   deleteLayanan
 } = require("../controllers/adminController");
 
+const loginHandler = authController.loginUser || authController.login;
+
 // Login Admin & Customer
-router.post("/login", loginUser);
+router.post("/login", loginHandler);
 
 // Laporan & Status Transaksi / Booking
 router.get("/laporan", verifyAdmin, getLaporan);
