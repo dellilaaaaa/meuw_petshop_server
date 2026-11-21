@@ -1,15 +1,35 @@
 const express = require("express");
 const router = express.Router();
-const authController = require("../controllers/authControllers");
-const adminController = require("../controllers/adminController");
 const { verifyAdmin } = require("../middleware/auth");
+const { loginUser } = require("../controllers/authControllers");
+const {
+  getLaporan,
+  updateStatusTransaksi,
+  updateStatusBooking,
+  createProduk,
+  updateProduk,
+  deleteProduk,
+  createLayanan,
+  updateLayanan,
+  deleteLayanan
+} = require("../controllers/adminController");
 
-// Login umum (User & Admin)
-router.post("/login", authController.login);
+// Login Admin & Customer
+router.post("/login", loginUser);
 
-// Endpoint Khusus Admin (dilindungi verifyAdmin)
-router.get("/laporan", verifyAdmin, adminController.getLaporan);
-router.put("/transaksi/:id_transaksi/status", verifyAdmin, adminController.updateStatusTransaksi);
-router.put("/booking/:id_booking/status", verifyAdmin, adminController.updateStatusBooking);
+// Laporan & Status Transaksi / Booking
+router.get("/laporan", verifyAdmin, getLaporan);
+router.put("/transaksi/:id_transaksi/status", verifyAdmin, updateStatusTransaksi);
+router.put("/booking/:id_booking/status", verifyAdmin, updateStatusBooking);
+
+// CRUD Produk & Stok Cabang
+router.post("/produk", verifyAdmin, createProduk);
+router.put("/produk/:id_barang", verifyAdmin, updateProduk);
+router.delete("/produk/:id_barang", verifyAdmin, deleteProduk);
+
+// CRUD Layanan Petshop
+router.post("/layanan", verifyAdmin, createLayanan);
+router.put("/layanan/:id_layanan", verifyAdmin, updateLayanan);
+router.delete("/layanan/:id_layanan", verifyAdmin, deleteLayanan);
 
 module.exports = router;

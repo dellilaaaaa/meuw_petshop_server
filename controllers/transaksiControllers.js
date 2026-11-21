@@ -1,13 +1,14 @@
-
 const mongoose = require("mongoose");
 const Transaksi = require("../models/Transaksi");
+const DetailTransaksi = require("../models/DetailTransaksi");
+const StokCabang = require("../models/StokCabang");
 const HistoriTransaksi = require("../models/HistoriTransaksi");
 const User = require("../models/User");
 const Store = require("../models/Store");
 
 const daftarStatus = ["Pending", "Diproses", "Selesai", "Dibatalkan"];
 
-// Generate ID Auto Increment
+// Generate ID Auto Increment (maksimal 4 digit sesuai schema)
 const generateId = async (namaCounter) => {
   const counters = mongoose.connection.collection("counters");
 
@@ -32,32 +33,25 @@ const validateTransaksi = async (data) => {
     throw new Error("ID user, ID toko, dan total harga harus diisi");
   }
 
-  const user = await User.findOne({ id_user });
-
+  const user = await User.findOne({ id_user: String(id_user) });
   if (!user) {
     throw new Error("User tidak ditemukan");
   }
 
-  const toko = await Store.findOne({ id_toko });
-
+  const toko = await Store.findOne({ id_toko: String(id_toko) });
   if (!toko) {
     throw new Error("Toko tidak ditemukan");
   }
 
   const harga = Number(total_harga);
-
-  if (
-    !Number.isFinite(harga) ||
-    harga < 0 ||
-    harga > 9999999999.99
-  ) {
+  if (!Number.isFinite(harga) || harga < 0 || harga > 9999999999.99) {
     throw new Error("Total harga tidak valid");
   }
 
   return {
-    id_user,
-    id_toko,
-    total_harga: harga
+    id_user: String(id_user),
+    id_toko: String(id_toko),
+    total_harga: harga,
   };
 };
 
@@ -72,29 +66,45 @@ const createHistori = async (
 
   return await HistoriTransaksi.create({
     id_histori,
-    id_transaksi,
+    id_transaksi: String(id_transaksi),
     status_sebelumnya,
     status_terbaru,
     tanggal_perubahan: new Date(),
-    catatan
+    catatan,
   });
 };
 
-// 1. Tampilkan Semua Transaksi
+// Kembalikan stok cabang jika transaksi dibatalkan
+const restoreStokCabang = async (id_transaksi, id_toko) => {
+  const items = await DetailTransaksi.find({ id_transaksi: String(id_transaksi) });
+  for (const item of items) {
+    await StokCabang.findOneAndUpdate(
+      { id_toko: String(id_toko), id_barang: String(item.id_barang) },
+      { $inc: { jumlah_stok: item.jumlah } }
+    );
+  }
+};
+
+// 1. Tampilkan Semua Transaksi (bisa difilter ?id_user=... untuk riwayat customer)
 exports.getAllTransaksi = async (req, res) => {
   try {
-    const transaksi = await Transaksi.find().sort({ tanggal: -1 });
+    const filter = {};
+    if (req.query.id_user) {
+      filter.id_user = String(req.query.id_user);
+    }
+
+    const transaksi = await Transaksi.find(filter).sort({ tanggal: -1 });
 
     res.status(200).json({
       success: true,
       total: transaksi.length,
-      data: transaksi
+      data: transaksi,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Gagal mengambil data transaksi",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -103,118 +113,129 @@ exports.getAllTransaksi = async (req, res) => {
 exports.getTransaksiById = async (req, res) => {
   try {
     const transaksi = await Transaksi.findOne({
-      id_transaksi: req.params.id_transaksi
+      id_transaksi: req.params.id_transaksi,
     });
 
     if (!transaksi) {
       return res.status(404).json({
         success: false,
-        message: "Transaksi tidak ditemukan"
+        message: "Transaksi tidak ditemukan",
       });
     }
 
     res.status(200).json({
       success: true,
-      data: transaksi
+      data: transaksi,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Gagal mengambil detail transaksi",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// 3. Tambah Transaksi
+// 3. Tambah Transaksi Baru
 exports.createTransaksi = async (req, res) => {
   try {
     const dataValid = await validateTransaksi(req.body);
+    const metodePembayaran = req.body.metode_pembayaran || "QRIS";
+    const metodePengiriman = req.body.metode_pengiriman || "Kurir Instan";
 
-    const statusAwal = req.body.status || "Pending";
-
-    if (!daftarStatus.includes(statusAwal)) {
-      return res.status(400).json({
-        success: false,
-        message: "Status transaksi tidak valid"
-      });
-    }
+    // Jika QRIS Instan disimulasikan langsung lunas, status awal langsung "Diproses"
+    const statusAwal =
+      req.body.status && daftarStatus.includes(req.body.status)
+        ? req.body.status
+        : "Pending";
 
     const id_transaksi = await generateId("transaksi");
 
     const transaksiBaru = await Transaksi.create({
       id_transaksi,
       ...dataValid,
-      status: statusAwal
+      status: statusAwal,
     });
 
-    await createHistori(
-      id_transaksi,
-      null,
-      statusAwal,
-      "Transaksi berhasil dibuat"
-    );
+    const catatanAwal =
+      statusAwal === "Diproses"
+        ? `Pembayaran via ${metodePembayaran} terverifikasi otomatis (${metodePengiriman})`
+        : `Pesanan dibuat — Metode: ${metodePembayaran} (${metodePengiriman}). Menunggu pembayaran/konfirmasi.`;
+
+    await createHistori(id_transaksi, null, statusAwal, catatanAwal);
 
     res.status(201).json({
       success: true,
       message: "Transaksi berhasil dibuat dan histori awal dicatat",
-      data: transaksiBaru
+      data: transaksiBaru,
     });
   } catch (error) {
     res.status(400).json({
       success: false,
       message: "Gagal membuat transaksi",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// 4. Update Status Transaksi
+// 4. Update Status Transaksi (bisa dipakai Customer untuk Batalkan/Terima Pesanan maupun Admin)
 exports.updateStatusTransaksi = async (req, res) => {
   try {
-    const { status_terbaru, catatan } = req.body;
+    const statusBaru = req.body.status_terbaru || req.body.status;
+    const { catatan } = req.body;
 
-    if (!daftarStatus.includes(status_terbaru)) {
+    if (!daftarStatus.includes(statusBaru)) {
       return res.status(400).json({
         success: false,
-        message: "Status transaksi tidak valid"
+        message: "Status transaksi tidak valid",
       });
     }
 
     const transaksi = await Transaksi.findOne({
-      id_transaksi: req.params.id_transaksi
+      id_transaksi: req.params.id_transaksi,
     });
 
     if (!transaksi) {
       return res.status(404).json({
         success: false,
-        message: "Transaksi tidak ditemukan"
+        message: "Transaksi tidak ditemukan",
       });
     }
 
     const statusSebelumnya = transaksi.status;
+    if (statusSebelumnya === statusBaru) {
+      return res.status(200).json({
+        success: true,
+        message: "Status transaksi tidak berubah",
+        data: transaksi,
+      });
+    }
 
-    transaksi.status = status_terbaru;
+    // Jika dibatalkan dari status aktif, kembalikan stok ke cabang toko asal
+    if (statusBaru === "Dibatalkan" && statusSebelumnya !== "Dibatalkan") {
+      await restoreStokCabang(transaksi.id_transaksi, transaksi.id_toko);
+    }
+
+    transaksi.status = statusBaru;
     await transaksi.save();
 
     await createHistori(
       transaksi.id_transaksi,
       statusSebelumnya,
-      status_terbaru,
-      catatan ||
-        `Status diubah dari ${statusSebelumnya} menjadi ${status_terbaru}`
+      statusBaru,
+      catatan || `Status diubah dari ${statusSebelumnya} menjadi ${statusBaru}`
     );
 
     res.status(200).json({
       success: true,
       message: "Status transaksi berhasil diperbarui dan histori dicatat",
-      data: transaksi
+      data: transaksi,
     });
   } catch (error) {
     res.status(400).json({
       success: false,
       message: "Gagal memperbarui status transaksi",
-      error: error.message
+      error: error.message,
     });
   }
 };
